@@ -9,6 +9,9 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_AUTO_SIZE
+from google.cloud import storage
+import os
+import requests 
 
 # --- Global Değişkenler ve Haritalar ---
 ICON_MAP = {
@@ -73,22 +76,57 @@ def create_presentation(data, icon_path):
 # --- ANA MCP ARACI FONKSİYONU ---
 def create_graphical_abstract_from_url(url: str) -> str:
     """
-    Verilen JAMA makale URL'sinden verileri çeker, ayrıştırır ve
-    bir PowerPoint sunumu oluşturur. Oluşturulan dosyanın adını döndürür.
+    Verilen JAMA makale URL'sinden verileri çeker, bir PowerPoint sunumu oluşturur,
+    bu sunumu file.io'ya yükler ve indirme linkini döndürür.
     """
+    # 1. Veriyi çek
     print(f"Makale ayrıştırılıyor: {url}")
     parsed_data = parse_jama_article(url)
-    
     if not parsed_data:
-        return "Makale verileri çekilemedi."
+        return "HATA: Makale verileri çekilemedi."
 
+    # 2. İkonu seç
     print("İçeriğe göre tematik ikon seçiliyor...")
     thematic_icon_path = select_thematic_icon(
         parsed_data.get('title', ''),
         parsed_data.get('keywords', [])
     )
     
+    # 3. PPTX oluştur
     print("PowerPoint sunumu oluşturuluyor...")
-    output_filename = create_presentation(parsed_data, thematic_icon_path)
+    local_filename = create_presentation(parsed_data, thematic_icon_path)
+    if not local_filename:
+        return "HATA: Sunum dosyası oluşturulamadı."
+
+    # 4. YENİ ADIM: file.io'ya Yükle
+    download_url = upload_to_fileio(local_filename)
     
-    return f"Sunum başarıyla oluşturuldu: {output_filename}"
+    # Geçici lokal dosyayı sil
+    if os.path.exists(local_filename):
+        os.remove(local_filename)
+
+    if download_url:
+        return f"Sunum başarıyla oluşturuldu. İndirme linki: {download_url}"
+    else:
+        return "HATA: Dosya oluşturuldu ancak yüklenemedi."
+
+def upload_to_fileio(source_file_name):
+    """Oluşturulan dosyayı file.io'ya yükler ve indirme linkini döndürür."""
+    print(f"'{source_file_name}' file.io servisine yükleniyor...")
+    try:
+        with open(source_file_name, 'rb') as f:
+            response = requests.post('https://file.io', files={'file': f})
+            response.raise_for_status() # Hata varsa exception fırlat
+            
+            data = response.json()
+            if data.get("success"):
+                return data.get("link")
+            else:
+                print(f"file.io'dan hata döndü: {data.get('message')}")
+                return None
+    except requests.exceptions.RequestException as e:
+        print(f"file.io'ya yüklerken bir ağ hatası oluştu: {e}")
+        return None
+    except Exception as e:
+        print(f"Dosya yüklenirken beklenmedik bir hata oluştu: {e}")
+        return None
