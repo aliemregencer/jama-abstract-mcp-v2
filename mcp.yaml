@@ -1,0 +1,43 @@
+name: jama-abstract-mcp-v2
+version: "1.0.0"
+description: "JAMA Network makale URL'sinden görsel özet içeren bir PowerPoint dosyası oluşturur."
+
+# MCP'ye sunucuyu nasıl başlatacağını söyler
+server:
+  command: python
+  # Bizim ana sunucu dosyamızın adı server.py olduğu için onu belirtiyoruz
+  args: ["-m", "server"] 
+  env:
+    PYTHONPATH: "."
+    PYTHONUNBUFFERED: "1"
+
+# MCP'ye sunduğumuz aracı (tool) tanımlar
+tools:
+  - name: generate_graphical_abstract # Bu isim server.py'daki fonksiyon adıyla aynı olmalı
+    description: "Bir JAMA Network Open makale URL'si alır ve makalenin görsel özetini içeren bir PowerPoint (PPTX) dosyası oluşturur."
+    inputSchema:
+      type: object
+      properties:
+        url:
+          type: string
+          description: "Görsel özeti oluşturulacak JAMA Network makalesinin tam URL'si"
+          pattern: "^https://jamanetwork\\.com/.*"
+      required:
+        - url
+    outputSchema:
+      type: object
+      properties:
+        result:
+          type: string
+          description: "İşlem sonucu ve başarılıysa PPTX indirme linki"
+
+# Gerekli Python kütüphanelerini belirtir
+# MCP bu listeyi kullanarak 'pip install' yapacak
+install:
+  pip:
+    - fastmcp>=0.9.0
+    - selenium>=4.15.0
+    - beautifulsoup4>=4.12.0
+    - requests>=2.31.0
+    - webdriver-manager>=4.0.0
+    - python-pptx>=0.6.21
