@@ -1,0 +1,23 @@
+# Sanal Ortam Klasörü
+# Bu klasör kişisel ve çok büyük olduğu için asla gönderilmemeli.
+venv/
+
+# Python Önbellek Dosyaları
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Editör/IDE Konfigürasyon Dosyaları
+.vscode/
+.idea/
+
+# İşletim Sistemi Dosyaları
+.DS_Store
+Thumbs.db
+
+# webdriver-manager önbelleği (genellikle proje dışında olur ama garanti olsun)
+.wdm/
+
+# Projenin çalışmasıyla üretilen çıktılar
+*.pptx
