@@ -3,6 +3,7 @@
 import json
 import re
 import os
+import base64
 from pprint import pprint
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -13,6 +14,7 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_AUTO_SIZE
+import requests
 
 # --- İKON EŞLEŞTİRME HARİTASI (Değişiklik yok) ---
 ICON_MAP = {
@@ -340,6 +342,19 @@ def create_presentation(data, icon_path):
     print(f"\nSunum başarıyla güncellendi ve kaydedildi: {filename}")
     return filename
 
+def encode_file_to_base64(filename):
+    """
+    Dosyayı base64 formatında encode eder
+    """
+    try:
+        with open(filename, 'rb') as f:
+            file_content = f.read()
+            encoded_content = base64.b64encode(file_content).decode('utf-8')
+            return encoded_content
+    except Exception as e:
+        print(f"Dosya encode hatası: {e}")
+        return None
+
 def create_graphical_abstract_from_url(url: str) -> str:
     # GÜNCELLEME: Hata mesajını işlemek için güncellendi
     print(f"Makale ayrıştırılıyor: {url}")
@@ -358,7 +373,20 @@ def create_graphical_abstract_from_url(url: str) -> str:
     print("PowerPoint sunumu oluşturuluyor...")
     local_filename = create_presentation(parsed_data, thematic_icon_path)
     
-    # ... (file.io yükleme kısmı aynı kalacak) ...
-    # ...
-
-    return f"Sunum başarıyla oluşturuldu: {local_filename}" # Örnek
+    # Dosyayı base64 formatında encode et
+    print("Dosya encode ediliyor...")
+    encoded_file = encode_file_to_base64(local_filename)
+    
+    if encoded_file:
+        # JSON formatında dosya bilgilerini döndür
+        file_info = {
+            "status": "success",
+            "message": "✅ PowerPoint sunumu başarıyla oluşturuldu!",
+            "filename": local_filename,
+            "file_size": len(encoded_file),
+            "download_data": encoded_file,
+            "instructions": "Bu base64 encoded veriyi kullanarak dosyayı indirebilirsiniz."
+        }
+        return json.dumps(file_info, indent=2)
+    else:
+        return f"✅ PowerPoint sunumu başarıyla oluşturuldu: {local_filename}\n\n⚠️ Dosya encode edilemedi. Dosya yerel olarak kaydedildi."
