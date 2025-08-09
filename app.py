@@ -344,7 +344,12 @@ def create_presentation(data, icon_path):
     print(f"\nSunum başarıyla güncellendi ve kaydedildi: {filename}")
     return filename
 
-def upload_to_github_release(filename: str, title: str, repo_full_name: str, github_token: str) -> str | None:
+def upload_to_github_release(
+    filename: str,
+    title: str,
+    repo_full_name: str,
+    github_token: str,
+) -> tuple[str | None, str | None]:
     """
     Verilen `repo_full_name` (örn. "kullaniciadi/repoadi") ve `github_token` ile GitHub'da
     `latest-abstract` etiketiyle bir Release oluşturur, varsa eskisini siler ve `filename`
@@ -352,11 +357,13 @@ def upload_to_github_release(filename: str, title: str, repo_full_name: str, git
     """
     try:
         if not repo_full_name or "/" not in repo_full_name:
-            print("Geçersiz repo formatı. 'kullaniciadi/repoadi' şeklinde olmalı.")
-            return None
+            msg = "Geçersiz repo formatı. 'kullaniciadi/repoadi' şeklinde olmalı."
+            print(msg)
+            return None, msg
         if not github_token:
-            print("GitHub token gerekli, işlem iptal edildi.")
-            return None
+            msg = "GitHub token gerekli, işlem iptal edildi."
+            print(msg)
+            return None, msg
 
         repo_owner, repo_name = repo_full_name.split("/", 1)
         release_tag = "latest-abstract"
@@ -370,6 +377,16 @@ def upload_to_github_release(filename: str, title: str, repo_full_name: str, git
         }
 
         api_base = f"https://api.github.com/repos/{repo_owner}/{repo_name}"
+
+        # Token ve repo erişimini doğrula
+        repo_check = requests.get(api_base, headers=headers_json)
+        if repo_check.status_code != 200:
+            msg = (
+                f"Repo erişimi başarısız: {repo_check.status_code} {repo_check.text}. "
+                "Repo adını ve token izinlerini kontrol edin."
+            )
+            print(msg)
+            return None, msg
 
         # Mevcut release'i kontrol et ve varsa sil
         print("Mevcut release kontrol ediliyor...")
@@ -388,8 +405,9 @@ def upload_to_github_release(filename: str, title: str, repo_full_name: str, git
             requests.delete(f"{api_base}/git/refs/tags/{release_tag}", headers=headers_json)
             print("Eski release ve etiketi silindi.")
         elif response.status_code not in (200, 404):
-            print(f"Release kontrolünde hata: {response.status_code} {response.text}")
-            return None
+            msg = f"Release kontrolünde hata: {response.status_code} {response.text}"
+            print(msg)
+            return None, msg
 
         # Yeni release oluştur
         print("Yeni release oluşturuluyor...")
@@ -406,8 +424,9 @@ def upload_to_github_release(filename: str, title: str, repo_full_name: str, git
         }
         response = requests.post(f"{api_base}/releases", json=release_data, headers=headers_json)
         if response.status_code != 201:
-            print(f"Release oluşturma hatası: {response.status_code} {response.text}")
-            return None
+            msg = f"Release oluşturma hatası: {response.status_code} {response.text}"
+            print(msg)
+            return None, msg
 
         release_info = response.json()
         upload_url = release_info["upload_url"].split("{")[0]
@@ -421,21 +440,28 @@ def upload_to_github_release(filename: str, title: str, repo_full_name: str, git
             "Accept": "application/vnd.github+json",
             "Content-Type": "application/octet-stream",
         }
-        upload_resp = requests.post(f"{upload_url}?name={os.path.basename(filename)}", data=binary, headers=headers_upload)
+        upload_resp = requests.post(
+            f"{upload_url}?name={os.path.basename(filename)}",
+            data=binary,
+            headers=headers_upload,
+        )
         if upload_resp.status_code != 201:
-            print(f"Dosya yükleme hatası: {upload_resp.status_code} {upload_resp.text}")
-            return None
+            msg = f"Dosya yükleme hatası: {upload_resp.status_code} {upload_resp.text}"
+            print(msg)
+            return None, msg
 
         asset_info = upload_resp.json()
         download_url = asset_info.get("browser_download_url")
         if not download_url:
-            print("browser_download_url bulunamadı.")
-            return None
+            msg = "browser_download_url bulunamadı."
+            print(msg)
+            return None, msg
         print(f"Dosya başarıyla yüklendi: {download_url}")
-        return download_url
+        return download_url, None
     except Exception as e:
-        print(f"GitHub yükleme hatası: {e}")
-        return None
+        msg = f"GitHub yükleme hatası: {e}"
+        print(msg)
+        return None, msg
 
 def create_graphical_abstract_from_url(url: str) -> str:
     # GÜNCELLEME: Hata mesajını işlemek için güncellendi
@@ -461,7 +487,7 @@ def create_graphical_abstract_from_url(url: str) -> str:
     env_token = os.getenv("GITHUB_TOKEN")
     download_url = None
     if env_repo and env_token:
-        download_url = upload_to_github_release(
+        download_url, upload_err = upload_to_github_release(
             local_filename,
             parsed_data.get('title', 'Bilinmeyen Makale'),
             env_repo,
@@ -471,7 +497,11 @@ def create_graphical_abstract_from_url(url: str) -> str:
     if download_url:
         return f"✅ PowerPoint sunumu başarıyla oluşturuldu!\n\n📥 İndirme linki: {download_url}\n\n💡 Bu link kalıcıdır ve herkese açıktır."
     else:
-        return f"✅ PowerPoint sunumu başarıyla oluşturuldu: {local_filename}\n\n⚠️ GitHub yükleme servisi şu anda kullanılamıyor. Dosya yerel olarak kaydedildi."
+        extra = f"\n\nDetay: {upload_err}" if env_repo and env_token else ""
+        return (
+            f"✅ PowerPoint sunumu başarıyla oluşturuldu: {local_filename}\n\n"
+            f"⚠️ GitHub yükleme servisi şu anda kullanılamıyor. Dosya yerel olarak kaydedildi.{extra}"
+        )
 
 
 def create_graphical_abstract(url: str, github_repo: str, github_token: str) -> str:
@@ -493,7 +523,7 @@ def create_graphical_abstract(url: str, github_repo: str, github_token: str) -> 
     local_filename = create_presentation(parsed_data, thematic_icon_path)
 
     print("GitHub release oluşturuluyor ve dosya yükleniyor...")
-    download_url = upload_to_github_release(
+    download_url, upload_err = upload_to_github_release(
         local_filename,
         parsed_data.get("title", "Bilinmeyen Makale"),
         github_repo,
@@ -508,5 +538,5 @@ def create_graphical_abstract(url: str, github_repo: str, github_token: str) -> 
         )
     return (
         f"✅ PowerPoint sunumu başarıyla oluşturuldu: {local_filename}\n\n"
-        "⚠️ GitHub yükleme başarısız oldu. Repo adını ve token'ı kontrol edin."
+        f"⚠️ GitHub yükleme başarısız oldu. Repo adını ve token'ı kontrol edin. Detay: {upload_err}"
     )
