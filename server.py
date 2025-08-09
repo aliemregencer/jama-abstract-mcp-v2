@@ -1,25 +1,30 @@
 import asyncio
 from mcp.server.fastmcp import FastMCP
-from app import create_graphical_abstract_from_url
+from app import create_graphical_abstract_from_url, create_graphical_abstract
 
 mcp = FastMCP("jama-abstract-generator")
 
 @mcp.tool()
-async def generate_graphical_abstract(url: str) -> str:
+async def generate_graphical_abstract(url: str, github_repo: str | None = None, github_token: str | None = None) -> str:
     """
-    Bir JAMA Network Open makale URL'si alır ve makalenin görsel özetini
-    içeren bir PowerPoint (PPTX) dosyası oluşturur.
-    Başarılı olduğunda oluşturulan dosyanın adını döndürür.
+    URL'den PPTX üretir. Eğer `github_repo` (kullanici/repoadi) ve `github_token` verilirse,
+    dosyayı `latest-abstract` release'ine yükler ve indirme linkini döndürür.
     """
-    # Scraping ve dosya oluşturma işlemleri zaman alıcı ve senkron işlemlerdir.
-    # Bu nedenle, asenkron sunucuyu bloke etmemek için ayrı bir thread'de çalıştırırız.
     loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(
-        None,  # Varsayılan thread pool executor'ı kullanır
-        create_graphical_abstract_from_url, # Çalıştırılacak fonksiyon
-        url    # Fonksiyona verilecek argüman
+    if github_repo and github_token:
+        return await loop.run_in_executor(
+            None,
+            create_graphical_abstract,
+            url,
+            github_repo,
+            github_token,
+        )
+    # Geriye dönük uyumluluk: sadece URL ile çalıştırma
+    return await loop.run_in_executor(
+        None,
+        create_graphical_abstract_from_url,
+        url,
     )
-    return result
 
 if __name__ == "__main__":
     mcp.run()

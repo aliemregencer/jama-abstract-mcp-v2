@@ -22,6 +22,12 @@ tools:
           type: string
           description: "Görsel özeti oluşturulacak JAMA Network makalesinin tam URL'si"
           pattern: "^https://jamanetwork\\.com/.*"
+        github_repo:
+          type: string
+          description: "Yükleme yapılacak GitHub reposu. Biçim: kullanici/repoadi"
+        github_token:
+          type: string
+          description: "Repoya yazma izni olan Personal Access Token"
       required:
         - url
     outputSchema:

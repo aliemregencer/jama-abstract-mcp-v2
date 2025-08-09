@@ -15,6 +15,8 @@ from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_AUTO_SIZE
 import requests
+import time
+from datetime import datetime
 
 # --- İKON EŞLEŞTİRME HARİTASI (Değişiklik yok) ---
 ICON_MAP = {
@@ -342,17 +344,97 @@ def create_presentation(data, icon_path):
     print(f"\nSunum başarıyla güncellendi ve kaydedildi: {filename}")
     return filename
 
-def encode_file_to_base64(filename):
+def upload_to_github_release(filename: str, title: str, repo_full_name: str, github_token: str) -> str | None:
     """
-    Dosyayı base64 formatında encode eder
+    Verilen `repo_full_name` (örn. "kullaniciadi/repoadi") ve `github_token` ile GitHub'da
+    `latest-abstract` etiketiyle bir Release oluşturur, varsa eskisini siler ve `filename`
+    dosyasını bu release'e asset olarak yükler. Başarılıysa herkese açık indirme linkini döndürür.
     """
     try:
-        with open(filename, 'rb') as f:
-            file_content = f.read()
-            encoded_content = base64.b64encode(file_content).decode('utf-8')
-            return encoded_content
+        if not repo_full_name or "/" not in repo_full_name:
+            print("Geçersiz repo formatı. 'kullaniciadi/repoadi' şeklinde olmalı.")
+            return None
+        if not github_token:
+            print("GitHub token gerekli, işlem iptal edildi.")
+            return None
+
+        repo_owner, repo_name = repo_full_name.split("/", 1)
+        release_tag = "latest-abstract"
+        safe_title = title or "JAMA Abstract"
+        release_name = f"JAMA Abstract - {safe_title[:70]}"  # daha kısa
+
+        # API headers
+        headers_json = {
+            "Authorization": f"Bearer {github_token}",
+            "Accept": "application/vnd.github+json",
+        }
+
+        api_base = f"https://api.github.com/repos/{repo_owner}/{repo_name}"
+
+        # Mevcut release'i kontrol et ve varsa sil
+        print("Mevcut release kontrol ediliyor...")
+        response = requests.get(f"{api_base}/releases/tags/{release_tag}", headers=headers_json)
+        if response.status_code == 200:
+            release = response.json()
+            release_id = release["id"]
+            # Asset'leri sil
+            assets_resp = requests.get(f"{api_base}/releases/{release_id}/assets", headers=headers_json)
+            if assets_resp.status_code == 200:
+                for asset in assets_resp.json():
+                    requests.delete(f"{api_base}/releases/assets/{asset['id']}", headers=headers_json)
+            # Release'i sil
+            requests.delete(f"{api_base}/releases/{release_id}", headers=headers_json)
+            # Tag'i de sil (aksi halde aynı tag ile oluşturma başarısız olabilir)
+            requests.delete(f"{api_base}/git/refs/tags/{release_tag}", headers=headers_json)
+            print("Eski release ve etiketi silindi.")
+        elif response.status_code not in (200, 404):
+            print(f"Release kontrolünde hata: {response.status_code} {response.text}")
+            return None
+
+        # Yeni release oluştur
+        print("Yeni release oluşturuluyor...")
+        release_data = {
+            "tag_name": release_tag,
+            "name": release_name,
+            "body": (
+                "JAMA Network Open makalesi için oluşturulan görsel özet.\n\n"
+                f"Makale: {safe_title}\n"
+                f"Oluşturulma tarihi: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            ),
+            "draft": False,
+            "prerelease": False,
+        }
+        response = requests.post(f"{api_base}/releases", json=release_data, headers=headers_json)
+        if response.status_code != 201:
+            print(f"Release oluşturma hatası: {response.status_code} {response.text}")
+            return None
+
+        release_info = response.json()
+        upload_url = release_info["upload_url"].split("{")[0]
+
+        # Dosyayı yükle
+        print("Dosya yükleniyor...")
+        with open(filename, "rb") as f:
+            binary = f.read()
+        headers_upload = {
+            "Authorization": f"Bearer {github_token}",
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/octet-stream",
+        }
+        upload_resp = requests.post(f"{upload_url}?name={os.path.basename(filename)}", data=binary, headers=headers_upload)
+        if upload_resp.status_code != 201:
+            print(f"Dosya yükleme hatası: {upload_resp.status_code} {upload_resp.text}")
+            return None
+
+        asset_info = upload_resp.json()
+        download_url = asset_info.get("browser_download_url")
+        if not download_url:
+            print("browser_download_url bulunamadı.")
+            return None
+        print(f"Dosya başarıyla yüklendi: {download_url}")
+        return download_url
     except Exception as e:
-        print(f"Dosya encode hatası: {e}")
+        print(f"GitHub yükleme hatası: {e}")
         return None
 
 def create_graphical_abstract_from_url(url: str) -> str:
@@ -373,20 +455,58 @@ def create_graphical_abstract_from_url(url: str) -> str:
     print("PowerPoint sunumu oluşturuluyor...")
     local_filename = create_presentation(parsed_data, thematic_icon_path)
     
-    # Dosyayı base64 formatında encode et
-    print("Dosya encode ediliyor...")
-    encoded_file = encode_file_to_base64(local_filename)
+    # Eski davranış: Ortam değişkenlerinden repo ve token alınıp yükleme denenir
+    print("Dosya GitHub'a yükleniyor...")
+    env_repo = os.getenv("GITHUB_REPO")
+    env_token = os.getenv("GITHUB_TOKEN")
+    download_url = None
+    if env_repo and env_token:
+        download_url = upload_to_github_release(
+            local_filename,
+            parsed_data.get('title', 'Bilinmeyen Makale'),
+            env_repo,
+            env_token,
+        )
     
-    if encoded_file:
-        # JSON formatında dosya bilgilerini döndür
-        file_info = {
-            "status": "success",
-            "message": "✅ PowerPoint sunumu başarıyla oluşturuldu!",
-            "filename": local_filename,
-            "file_size": len(encoded_file),
-            "download_data": encoded_file,
-            "instructions": "Bu base64 encoded veriyi kullanarak dosyayı indirebilirsiniz."
-        }
-        return json.dumps(file_info, indent=2)
+    if download_url:
+        return f"✅ PowerPoint sunumu başarıyla oluşturuldu!\n\n📥 İndirme linki: {download_url}\n\n💡 Bu link kalıcıdır ve herkese açıktır."
     else:
-        return f"✅ PowerPoint sunumu başarıyla oluşturuldu: {local_filename}\n\n⚠️ Dosya encode edilemedi. Dosya yerel olarak kaydedildi."
+        return f"✅ PowerPoint sunumu başarıyla oluşturuldu: {local_filename}\n\n⚠️ GitHub yükleme servisi şu anda kullanılamıyor. Dosya yerel olarak kaydedildi."
+
+
+def create_graphical_abstract(url: str, github_repo: str, github_token: str) -> str:
+    """
+    Kullanıcıdan alınan URL, repo (kullaniciadi/repoadi) ve token ile PPTX oluşturur,
+    `latest-abstract` release'ine yükler ve herkese açık indirme linkini döndürür.
+    """
+    print(f"Makale ayrıştırılıyor: {url}")
+    parsed_data, error = parse_jama_article(url)
+    if error:
+        return f"HATA: Makale verileri çekilemedi. Teknik Detay: {error}"
+
+    print("İçeriğe göre tematik ikon seçiliyor...")
+    thematic_icon_path = select_thematic_icon(
+        parsed_data.get("title", ""), parsed_data.get("keywords", [])
+    )
+
+    print("PowerPoint sunumu oluşturuluyor...")
+    local_filename = create_presentation(parsed_data, thematic_icon_path)
+
+    print("GitHub release oluşturuluyor ve dosya yükleniyor...")
+    download_url = upload_to_github_release(
+        local_filename,
+        parsed_data.get("title", "Bilinmeyen Makale"),
+        github_repo,
+        github_token,
+    )
+
+    if download_url:
+        return (
+            "✅ PowerPoint sunumu başarıyla oluşturuldu!\n\n"
+            f"📥 İndirme linki: {download_url}\n\n"
+            "💡 Bu link kalıcıdır ve herkese açıktır."
+        )
+    return (
+        f"✅ PowerPoint sunumu başarıyla oluşturuldu: {local_filename}\n\n"
+        "⚠️ GitHub yükleme başarısız oldu. Repo adını ve token'ı kontrol edin."
+    )
