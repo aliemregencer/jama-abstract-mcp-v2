@@ -424,9 +424,44 @@ def upload_to_github_release(
         }
         response = requests.post(f"{api_base}/releases", json=release_data, headers=headers_json)
         if response.status_code != 201:
-            msg = f"Release oluşturma hatası: {response.status_code} {response.text}"
-            print(msg)
-            return None, msg
+            # Özel durum: Repository is empty -> README oluşturarak başlatmayı dene, sonra tekrar dene
+            if response.status_code == 422 and "Repository is empty" in response.text:
+                print("Repo boş. README.md oluşturarak repo'yu başlatmayı deniyoruz...")
+                repo_meta = requests.get(api_base, headers=headers_json)
+                default_branch = "main"
+                if repo_meta.status_code == 200:
+                    default_branch = repo_meta.json().get("default_branch") or "main"
+
+                readme_content = (
+                    f"# {repo_name}\n\nBu repo otomatik olarak görsel özet dosyalarını (PPTX) barındırmak için başlatıldı."
+                )
+                create_resp = requests.put(
+                    f"{api_base}/contents/README.md",
+                    headers=headers_json,
+                    json={
+                        "message": "Initialize repository with README",
+                        "content": base64.b64encode(readme_content.encode("utf-8")).decode("utf-8"),
+                        "branch": default_branch,
+                    },
+                )
+                if create_resp.status_code in (201, 200):
+                    print("README.md oluşturuldu. Release tekrar oluşturuluyor...")
+                    time.sleep(1)
+                    response = requests.post(
+                        f"{api_base}/releases", json=release_data, headers=headers_json
+                    )
+                else:
+                    msg = (
+                        "Repo boş ve README oluşturma başarısız: "
+                        f"{create_resp.status_code} {create_resp.text}"
+                    )
+                    print(msg)
+                    return None, msg
+
+            if response.status_code != 201:
+                msg = f"Release oluşturma hatası: {response.status_code} {response.text}"
+                print(msg)
+                return None, msg
 
         release_info = response.json()
         upload_url = release_info["upload_url"].split("{")[0]
