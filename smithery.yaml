@@ -1,0 +1,23 @@
+runtime: "container"
+
+startCommand:
+  type: "http"
+  # Container runtime'da, process'i başlatma komutu genellikle Dockerfile'daki CMD'den gelir.
+  # İstersen açıkça belirtmek için aşağıyı ekleyebilirsin (Dockerfile CMD ile aynı olmalı):
+  command: "python"
+  args: ["-m", "server"]
+
+# (İsteğe bağlı) Oturum bazlı config şeması: Smithery arayüzünde input alanları üretir.
+# Sunucunda bu env'leri okuyacaksan eklemek güzel bir pratik.
+configSchema:
+  type: object
+  properties:
+    GITHUB_REPO:
+      type: string
+      description: "Çıktıların push edileceği repo: kullanici/repoadi"
+    GITHUB_TOKEN:
+      type: string
+      description: "Repo'ya yazma yetkili PAT"
+  required: []
+exampleConfig:
+  GITHUB_REPO: "aliemregencer/pptx-dosyasi"
