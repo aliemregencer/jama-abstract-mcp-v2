@@ -19,5 +19,3 @@ Thumbs.db
 # webdriver-manager önbelleği (genellikle proje dışında olur ama garanti olsun)
 .wdm/
 
-# Projenin çalışmasıyla üretilen çıktılar
-*.pptx
