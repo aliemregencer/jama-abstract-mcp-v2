@@ -5,29 +5,16 @@ startCommand:
   command: "python"
   args: ["-m", "server"]
 
-# JAMA VA Abstract Generator için konfigürasyon şeması
 configSchema:
   type: object
   properties:
     GITHUB_REPO:
       type: string
       description: "Çıktıların push edileceği GitHub repo: kullanici/repoadi"
-      pattern: "^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$"
     GITHUB_TOKEN:
       type: string
       description: "Repo'ya yazma yetkili GitHub Personal Access Token (PAT)"
-      minLength: 40
   required: []
 
 exampleConfig:
   GITHUB_REPO: "aliemregencer/pptx-dosyasi"
-  GITHUB_TOKEN: "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-
-# MCP Tool bilgileri
-toolInfo:
-  name: "generate_va_abstract"
-  description: "JAMA Network makalesinden VA formatında görsel özet oluşturur ve GitHub release olarak yükler"
-  parameters:
-    url: "JAMA Network makale URL'i"
-    github_repo: "GitHub repo adı (kullanici/repoadi)"
-    github_token: "GitHub Personal Access Token"
