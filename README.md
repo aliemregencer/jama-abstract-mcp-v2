@@ -1,173 +1,119 @@
-# JAMA Abstract Generator MCP
+# JAMA VA Abstract Generator
 
-Bu proje, JAMA Network Open makalelerini parse ederek görsel özet PowerPoint dosyaları oluşturan bir MCP (Model Context Protocol) sunucusudur.
+Bu MCP (Model Context Protocol) sunucusu, JAMA Network makalelerinden Veterans Affairs (VA) formatında görsel özetler oluşturur ve bunları GitHub release olarak yükler.
 
 ## Özellikler
 
-- JAMA Network Open makalelerini otomatik olarak parse eder
-- Makale içeriğine göre tematik ikon seçer
-- Profesyonel PowerPoint sunumu oluşturur
-- GitHub Releases üzerinden dosya paylaşımı
-- MCP protokolü ile entegrasyon
+- **JAMA Network Makale Parsing**: Selenium ile dinamik içerik çekme
+- **VA Template Kullanımı**: `templates/jama_va.pptx` şablonunu kullanarak tutarlı format
+- **Akıllı İçerik Yerleştirme**: Şekil isimlerine göre otomatik içerik dağıtımı
+- **GitHub Integration**: Otomatik release oluşturma ve dosya yükleme
+- **MCP Protocol**: Standart MCP araçları ile entegrasyon
 
 ## Kurulum
 
-### 1. Bağımlılıkları Yükleyin
+### Gereksinimler
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. GitHub Token Ayarlayın (Opsiyonel)
+### Ortam Değişkenleri
 
-Dosyaları GitHub Releases üzerinden paylaşmak için:
-
-1. GitHub'da Personal Access Token oluşturun:
-   - GitHub.com → Settings → Developer settings → Personal access tokens → Tokens (classic)
-   - "Generate new token" → "Generate new token (classic)"
-   - Token'a şu izinleri verin:
-     - `repo` (tam repository erişimi)
-     - `public_repo` (public repository'ler için)
-
-2. Token'ı environment variable olarak ayarlayın:
-
-**Windows:**
-```cmd
-set GITHUB_TOKEN=your_token_here
-```
-
-**Linux/Mac:**
 ```bash
-export GITHUB_TOKEN=your_token_here
-```
-
-**PowerShell:**
-```powershell
-$env:GITHUB_TOKEN="your_token_here"
-```
-
-### 3. Repository Ayarlarını Güncelleyin
-
-`app.py` dosyasında şu değişkenleri kendi bilgilerinizle güncelleyin:
-
-```python
-repo_owner = "your_github_username"  # GitHub kullanıcı adınız
-repo_name = "your_repo_name"         # Repository adınız
+export GITHUB_REPO="kullanici/repoadi"
+export GITHUB_TOKEN="ghp_your_github_token_here"
 ```
 
 ## Kullanım
 
-### MCP Sunucusu Olarak
+### MCP Tool Olarak
 
-```bash
-python server.py
+```python
+# MCP client'ta
+result = await mcp.generate_va_abstract(
+    url="https://jamanetwork.com/journals/jamanetworkopen/article-abstract/...",
+    github_repo="kullanici/repoadi",
+    github_token="ghp_..."
+)
 ```
 
-### Doğrudan Test
+### Doğrudan Python
 
-```bash
-python test_app.py
+```python
+from app import create_graphical_abstract
+
+result = create_graphical_abstract(
+    url="https://jamanetwork.com/...",
+    github_repo="kullanici/repoadi",
+    github_token="ghp_..."
+)
+print(result)
 ```
 
-## API Kullanımı
+## Template Yapısı
 
-MCP sunucusu çalıştığında, şu tool'u kullanabilirsiniz:
+`templates/jama_va.pptx` dosyası aşağıdaki şekil isimlerini içerir:
 
-```json
-{
-  "name": "generate_graphical_abstract",
-  "description": "Bir JAMA Network Open makale URL'si alır ve makalenin görsel özetini içeren bir PowerPoint (PPTX) dosyası oluşturur.",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "url": {
-        "type": "string",
-        "description": "JAMA Network Open makale URL'si"
-      }
-    },
-    "required": ["url"]
-  }
-}
+- `title`: Makale başlığı
+- `population_subtitle`: Popülasyon alt başlığı
+- `population_description`: Popülasyon açıklaması
+- `intervention_subtitle`: Müdahale alt başlığı
+- `intervention_description`: Müdahale açıklaması
+- `settings_locations_description`: Ayarlar ve konumlar
+- `primary_outcome_description`: Birincil sonuç
+- `findings_description_1` & `findings_description_2`: Bulgular (2 parça)
+- `footer_citation`: Alt bilgi alıntısı
+
+## Çıktı
+
+- **Dosya**: `JAMA_VA_Abstract.pptx`
+- **GitHub Release**: `latest-abstract` tag'i ile
+- **İndirme Linki**: Herkese açık, kalıcı link
+
+## Smithery Deployment
+
+Bu proje Smithery'de deploy edilmiştir ve MCP sunucusu olarak çalışır.
+
+### Konfigürasyon
+
+```yaml
+runtime: "container"
+startCommand:
+  type: "http"
+  command: "python"
+  args: ["-m", "server"]
 ```
 
-## Örnek Kullanım
+### Endpoint
 
-```
-URL: https://jamanetwork.com/journals/jamanetworkopen/fullarticle/2837260?resultClick=1
-```
-
-Bu URL'yi MCP sunucusuna gönderdiğinizde:
-
-1. Makale parse edilir
-2. İçeriğe göre tematik ikon seçilir
-3. PowerPoint sunumu oluşturulur
-4. GitHub Releases'e yüklenir (token varsa)
-5. İndirme linki döndürülür
-
-## Çıktı Formatı
-
-### Başarılı Durumda:
-```
-✅ PowerPoint sunumu başarıyla oluşturuldu!
-
-📥 İndirme linki: https://github.com/username/repo/releases/download/latest-abstract/JAMA_Graphical_Abstract.pptx
-
-💡 Bu link kalıcıdır ve herkese açıktır.
-```
-
-### GitHub Token Yoksa:
-```
-✅ PowerPoint sunumu başarıyla oluşturuldu: JAMA_Graphical_Abstract.pptx
-
-⚠️ GitHub yükleme servisi şu anda kullanılamıyor. Dosya yerel olarak kaydedildi.
-```
-
-## Dosya Yapısı
-
-```
-abstract-mcp/
-├── app.py              # Ana uygulama
-├── server.py           # MCP sunucusu
-├── parser.py           # HTML parsing fonksiyonları
-├── requirements.txt    # Bağımlılıklar
-├── mcp.yaml           # MCP konfigürasyonu
-├── icons/             # Tematik ikonlar
-│   ├── cardiology.png
-│   ├── neurology.png
-│   ├── oncology.png
-│   ├── public_health.png
-│   └── default.png
-├── jama_logo.png      # JAMA logosu
-└── test_app.py        # Test scripti
-```
-
-## Tematik İkonlar
-
-Sistem makale içeriğine göre otomatik olarak şu ikonları seçer:
-
-- **Cardiology**: Kalp, kardiyoloji ile ilgili makaleler
-- **Neurology**: Beyin, nöroloji ile ilgili makaleler  
-- **Oncology**: Kanser, onkoloji ile ilgili makaleler
-- **Public Health**: Halk sağlığı, epidemiyoloji ile ilgili makaleler
-- **Default**: Diğer tüm makaleler
+- **Port**: 8000 (varsayılan)
+- **MCP Endpoint**: `/mcp`
+- **Transport**: HTTP
 
 ## Hata Yönetimi
 
-Sistem şu durumlarda graceful fallback yapar:
+- JAMA URL doğrulama
+- Template dosya kontrolü
+- GitHub API hata yakalama
+- Selenium hata yönetimi
 
-- GitHub token yoksa → Yerel dosya kaydeder
-- Network hatası → Hata mesajı döndürür
-- Parsing hatası → Detaylı hata mesajı döndürür
+## Geliştirme
 
-## Katkıda Bulunma
+### Test
 
-1. Fork yapın
-2. Feature branch oluşturun (`git checkout -b feature/amazing-feature`)
-3. Commit yapın (`git commit -m 'Add amazing feature'`)
-4. Push yapın (`git push origin feature/amazing-feature`)
-5. Pull Request oluşturun
+```bash
+python test_app.py
+python test_mcp.py
+```
+
+### Yerel Çalıştırma
+
+```bash
+python -m server
+```
 
 ## Lisans
 
-Bu proje MIT lisansı altında lisanslanmıştır.
+Bu proje açık kaynak kodludur.
 

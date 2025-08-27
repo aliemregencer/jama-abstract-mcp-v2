@@ -202,146 +202,187 @@ def parse_jama_article(url):
 
 def create_presentation(data, icon_path):
     """
-    Verilen verilerle bir PowerPoint sunumu oluşturur ve kaydeder.
-    Metin kaydırma, otomatik sığdırma ve dinamik başlık boyutu eklendi.
+    Verilen verilerle jama_va.pptx template'ini kullanarak bir PowerPoint sunumu oluşturur.
+    Template'deki şekil isimlerine göre içerik yerleştirir.
     """
-    prs = Presentation()
-    prs.slide_width = Inches(10)
-    prs.slide_height = Inches(5.625)
+    # Template dosyasını aç
+    template_path = "templates/jama_va.pptx"
+    if not os.path.exists(template_path):
+        raise FileNotFoundError(f"Template dosyası bulunamadı: {template_path}")
+    
+    prs = Presentation(template_path)
+    
+    # Template'deki şekilleri bul ve içerikle doldur
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            shape_name = shape.name if hasattr(shape, 'name') else ""
+            
+            # Şekil ismine göre içerik yerleştir
+            if shape_name == "title":
+                if hasattr(shape, 'text_frame'):
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    p.text = data.get("title", "Başlık Bulunamadı")
+                    p.font.bold = True
+                    p.font.size = Pt(18)
+                    p.font.color.rgb = RGBColor(0xED, 0x09, 0x73)
+            
+            elif shape_name == "population_subtitle":
+                if hasattr(shape, 'text_frame'):
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    p.text = "POPULATION"
+                    p.font.bold = True
+                    p.font.size = Pt(11)
+                    p.font.color.rgb = RGBColor(0xED, 0x09, 0x73)
+            
+            elif shape_name == "population_description":
+                if hasattr(shape, 'text_frame'):
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    population_text = data["abstract"].get(
+                        "design, setting, and participants", 
+                        "Nüfus verisi bulunamadı."
+                    )
+                    p.text = population_text
+                    p.font.size = Pt(10)
+                    # Metin kutusuna sığdır
+                    shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+                    shape.text_frame.word_wrap = True
+            
+            elif shape_name == "intervention_subtitle":
+                if hasattr(shape, 'text_frame'):
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    p.text = "INTERVENTION"
+                    p.font.bold = True
+                    p.font.size = Pt(11)
+                    p.font.color.rgb = RGBColor(0xED, 0x09, 0x73)
+            
+            elif shape_name == "intervention_description":
+                if hasattr(shape, 'text_frame'):
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    intervention_text = data["abstract"].get(
+                        "interventions", 
+                        "Müdahale verisi bulunamadı."
+                    )
+                    p.text = intervention_text
+                    p.font.size = Pt(10)
+                    shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+                    shape.text_frame.word_wrap = True
+            
+            elif shape_name == "settings_locations_description":
+                if hasattr(shape, 'text_frame'):
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    settings_text = data["abstract"].get(
+                        "design, setting, and participants", 
+                        "Ayarlar ve konumlar bulunamadı."
+                    )
+                    p.text = settings_text
+                    p.font.size = Pt(10)
+                    shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+                    shape.text_frame.word_wrap = True
+            
+            elif shape_name == "primary_outcome_description":
+                if hasattr(shape, 'text_frame'):
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    outcome_text = data["abstract"].get(
+                        "main outcomes and measures", 
+                        "Birincil sonuç bulunamadı."
+                    )
+                    p.text = outcome_text
+                    p.font.size = Pt(10)
+                    shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+                    shape.text_frame.word_wrap = True
+            
+            elif shape_name == "findings_description_1":
+                if hasattr(shape, 'text_frame'):
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    findings_text = data["abstract"].get(
+                        "results", 
+                        "Bulgular bulunamadı."
+                    )
+                    # Bulguları iki parçaya böl
+                    if findings_text and len(findings_text) > 200:
+                        words = findings_text.split()
+                        mid_point = len(words) // 2
+                        p.text = " ".join(words[:mid_point])
+                    else:
+                        p.text = findings_text
+                    p.font.size = Pt(10)
+                    shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+                    shape.text_frame.word_wrap = True
+            
+            elif shape_name == "findings_description_2":
+                if hasattr(shape, 'text_frame'):
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    findings_text = data["abstract"].get(
+                        "results", 
+                        "Bulgular bulunamadı."
+                    )
+                    # Bulguları iki parçaya böl
+                    if findings_text and len(findings_text) > 200:
+                        words = findings_text.split()
+                        mid_point = len(words) // 2
+                        p.text = " ".join(words[mid_point:])
+                    else:
+                        p.text = ""
+                    p.font.size = Pt(10)
+                    shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+                    shape.text_frame.word_wrap = True
+            
+            elif shape_name == "footer_citation":
+                if hasattr(shape, 'text_frame'):
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    first_author = data["authors"][0]["name"] if data["authors"] else "Yazar Yok"
+                    citation = f"{first_author.split(',')[0]} L, et al. {data.get('title', 'Başlık')}; a randomized clinical trial. JAMA Netw Open. {data.get('publication_date', 'Tarih Yok')} doi:{data.get('doi', 'DOI Yok')}"
+                    p.text = citation
+                    p.font.size = Pt(8)
+                    p.font.color.rgb = RGBColor(128, 128, 128)
+            
+            # Metin kutularını da kontrol et
+            elif "Metin kutusu" in shape_name:
+                if hasattr(shape, 'text_frame'):
+                    # Metin kutusunun konumuna göre içerik yerleştir
+                    left = shape.left
+                    top = shape.top
+                    
+                    # Sol taraftaki metin kutuları (popülasyon alanı)
+                    if left < Inches(3):
+                        if "16" in shape_name or "17" in shape_name:
+                            shape.text_frame.clear()
+                            p = shape.text_frame.paragraphs[0]
+                            p.text = data["abstract"].get(
+                                "design, setting, and participants", 
+                                "Detay bilgi bulunamadı."
+                            )
+                            p.font.size = Pt(9)
+                            shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+                            shape.text_frame.word_wrap = True
+                    
+                    # Sağ taraftaki metin kutuları (bulgular alanı)
+                    elif left > Inches(3):
+                        if "20" in shape_name or "21" in shape_name or "22" in shape_name:
+                            shape.text_frame.clear()
+                            p = shape.text_frame.paragraphs[0]
+                            p.text = data["abstract"].get(
+                                "conclusions and relevance", 
+                                "Sonuç bilgisi bulunamadı."
+                            )
+                            p.font.size = Pt(9)
+                            shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+                            shape.text_frame.word_wrap = True
 
-    blank_slide_layout = prs.slide_layouts[6]
-    slide = prs.slides.add_slide(blank_slide_layout)
-
-    # Metin kutusu eklemek için yardımcı fonksiyon (autofit eklendi)
-    def add_textbox(
-        text,
-        left,
-        top,
-        width,
-        height,
-        font_size=12,
-        is_bold=False,
-        font_color=RGBColor(0, 0, 0),
-        align=PP_ALIGN.LEFT,
-    ):
-        textbox = slide.shapes.add_textbox(
-            Inches(left), Inches(top), Inches(width), Inches(height)
-        )
-        text_frame = textbox.text_frame
-        text_frame.clear()
-
-        # YENİ: Metin kutuya sığmazsa fontu otomatik küçült
-        text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
-        text_frame.word_wrap = True  # Word wrap hala önemli
-
-        p = text_frame.paragraphs[0]
-        p.text = text
-        p.font.name = "Arial"
-        p.font.size = Pt(font_size)
-        p.font.bold = is_bold
-        p.font.color.rgb = font_color
-        p.alignment = align
-        return textbox
-
-    # Arka plan kutusu eklemek için yardımcı fonksiyon
-    def add_background_box(left, top, width, height, color=RGBColor(0xF2, 0xF2, 0xF2)):
-        from pptx.enum.shapes import MSO_SHAPE
-
-        shape = slide.shapes.add_shape(
-            MSO_SHAPE.RECTANGLE,
-            Inches(left),
-            Inches(top),
-            Inches(width),
-            Inches(height),
-        )
-        shape.fill.solid()
-        shape.fill.fore_color.rgb = color
-        shape.line.fill.background()
-        return shape
-
-    # --- Slayt Öğelerini Yerleştirme ---
-
-    # 1. Logo
-    try:
-        slide.shapes.add_picture(
-            "jama_logo.png", Inches(0.2), Inches(0.2), height=Inches(0.4)
-        )
-    except FileNotFoundError:
-        print("UYARI: 'jama_logo.png' bulunamadı.")
-
-    # 2. Ana Başlık (Dinamik Font Boyutu ile)
-    title = data.get("title", "Başlık Bulunamadı")
-    # YENİ: Başlık uzunsa fontu küçült
-    title_font_size = 18
-    if len(title) > 100:
-        title_font_size = 14
-        print(
-            f"Başlık uzun ({len(title)} karakter), font boyutu {title_font_size}pt olarak ayarlandı."
-        )
-
-    add_textbox(
-        f"RCT: {title}",
-        0.3,
-        0.7,
-        9.4,
-        0.6,
-        font_size=title_font_size,
-        is_bold=True,
-        font_color=RGBColor(0xED, 0x09, 0x73),
-    )
-
-    # --- İçerik Kutuları ---
-    # Not: Kutuların 'top' değeri (dikey konumu) 1.5'ten 1.4'e çekildi, başlığa daha çok yer bırakmak için.
-
-    # 3. Nüfus (Population) Kutusu
-    add_background_box(0.3, 1.5, 2.9, 3.6)  # Arka plan
-    add_textbox(
-        "POPULATION",
-        0.5,
-        1.6,
-        2.5,
-        0.3,
-        font_size=11,
-        is_bold=True,
-        font_color=RGBColor(0xED, 0x09, 0x73),
-    )
-    try:
-        slide.shapes.add_picture(
-            icon_path, Inches(0.5), Inches(2.0), height=Inches(0.8)
-        )
-    except FileNotFoundError:
-        print(f"UYARI: '{icon_path}' bulunamadı.")
-
-    population_text = data["abstract"].get(
-        "design, setting, and participants", "Nüfus verisi bulunamadı."
-    )
-    add_textbox(population_text, 0.5, 2.9, 2.5, 2.0, font_size=10)
-
-    # 4. Bulgular (Findings) Kutusu
-    add_background_box(3.4, 1.5, 6.3, 3.6)  # Arka plan
-    add_textbox(
-        "FINDINGS",
-        3.6,
-        1.6,
-        3.5,
-        0.3,
-        font_size=11,
-        is_bold=True,
-        font_color=RGBColor(0xED, 0x09, 0x73),
-    )
-    findings_text = data["abstract"].get(
-        "conclusions and relevance", "Bulgular bulunamadı."
-    )
-    add_textbox(findings_text, 3.6, 2.0, 6.0, 3.0, font_size=10)
-
-    # 5. Künye (Footer)
-    first_author = data["authors"][0]["name"] if data["authors"] else "Yazar Yok"
-    citation = f"{first_author.split(',')[0]} L, et al. {title}; a randomized clinical trial. JAMA Netw Open. {data.get('publication_date', 'Tarih Yok')} doi:{data.get('doi', 'DOI Yok')}"
-    add_textbox(citation, 0.3, 5.2, 9.4, 0.3, font_size=8)
-
-    filename = "JAMA_Graphical_Abstract.pptx"
+    # Dosyayı kaydet
+    filename = "JAMA_VA_Abstract.pptx"
     prs.save(filename)
-    print(f"\nSunum başarıyla güncellendi ve kaydedildi: {filename}")
+    print(f"\nVA formatında sunum başarıyla oluşturuldu ve kaydedildi: {filename}")
     return filename
 
 def upload_to_github_release(
