@@ -37,36 +37,144 @@ def select_thematic_icon(article_title, article_keywords):
     return "icons/default.png"
 
 def parse_jama_article(url):
-    # GÜNCELLEME: Bu fonksiyon artık (data, error) formatında bir tuple döndürecek
+    # GÜNCELLEME: Container ortamında çalışacak şekilde Selenium konfigürasyonu
     html_content = None
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--window-size=1920,1080")
-    chrome_options.add_argument("--log-level=3")
-    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36")
-
+    
+    # Önce requests ile deneyelim (daha hızlı ve güvenilir)
+    print("📡 Requests ile sayfa yükleniyor...")
     try:
-        service = ChromeService(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=chrome_options)
-        driver.get(url)
-        html_content = driver.page_source
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+        }
+        
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+        html_content = response.text
+        
+        # Sayfa yüklendi mi kontrol et
+        if "jamanetwork" in html_content.lower() and len(html_content) > 1000:
+            print("✅ Requests ile sayfa başarıyla yüklendi")
+        else:
+            print("⚠️ Requests ile sayfa yüklendi ama içerik eksik, Selenium deneniyor...")
+            html_content = None
+            
     except Exception as e:
-        # GÜNCELLEME: Hatayı print edip None dönmek yerine, hatayı string olarak döndür
-        error_message = f"Selenium ile sayfa yüklenirken bir hata oluştu: {str(e)}"
-        print(error_message)
-        return None, error_message # Hata durumunda (None, "hata mesajı") döndür
-    finally:
-        if 'driver' in locals():
-            driver.quit()
+        print(f"⚠️ Requests ile yükleme başarısız: {e}")
+        html_content = None
+    
+    # Requests başarısız olursa Selenium'u dene
+    if not html_content:
+        print("🔄 Selenium ile sayfa yükleniyor...")
+        try:
+            # Container ortamında çalışacak Chrome options
+            chrome_options = Options()
+            chrome_options.add_argument("--headless")
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--disable-gpu")
+            chrome_options.add_argument("--disable-extensions")
+            chrome_options.add_argument("--disable-plugins")
+            chrome_options.add_argument("--disable-images")
+            chrome_options.add_argument("--disable-javascript")  # JavaScript'i devre dışı bırak
+            chrome_options.add_argument("--window-size=1920,1080")
+            chrome_options.add_argument("--log-level=3")
+            chrome_options.add_argument("--silent")
+            chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            
+            # Container ortamında Chrome driver kurulumu
+            try:
+                # Önce sistem Chrome'u kullanmayı dene
+                service = ChromeService()
+                driver = webdriver.Chrome(service=service, options=chrome_options)
+                print("✅ Sistem Chrome driver kullanılıyor")
+            except:
+                # Sistem Chrome yoksa ChromeDriverManager kullan
+                try:
+                    # Container ortamında Chrome driver kurulumu
+                    import os
+                    chrome_bin = os.getenv('CHROME_BIN', '/usr/bin/google-chrome')
+                    if os.path.exists(chrome_bin):
+                        chrome_options.binary_location = chrome_bin
+                        print(f"✅ Chrome binary bulundu: {chrome_bin}")
+                    
+                    # ChromeDriverManager'ı container ortamında çalışacak şekilde ayarla
+                    os.environ['WDM_LOG_LEVEL'] = '0'  # Log seviyesini düşür
+                    os.environ['WDM_LOCAL'] = '1'      # Yerel cache kullan
+                    
+                    service = ChromeService(ChromeDriverManager().install())
+                    driver = webdriver.Chrome(service=service, options=chrome_options)
+                    print("✅ ChromeDriverManager ile Chrome driver kuruldu")
+                except Exception as driver_error:
+                    print(f"❌ Chrome driver kurulumu başarısız: {driver_error}")
+                    # Son çare: requests ile tekrar dene
+                    print("🔄 Son çare: Requests ile tekrar deneniyor...")
+                    try:
+                        response = requests.get(url, headers=headers, timeout=60)
+                        response.raise_for_status()
+                        html_content = response.text
+                        if "jamanetwork" in html_content.lower() and len(html_content) > 1000:
+                            print("✅ Son çare requests başarılı")
+                        else:
+                            raise Exception("HTML içerik yetersiz")
+                    except Exception as final_error:
+                        error_message = f"Tüm scraping yöntemleri başarısız: {final_error}"
+                        print(error_message)
+                        return None, error_message
+            
+            # Selenium ile sayfa yükle
+            if 'driver' in locals():
+                driver.set_page_load_timeout(60)
+                driver.get(url)
+                
+                # Sayfa yüklenene kadar bekle
+                time.sleep(5)
+                
+                # JavaScript'i etkinleştir ve tekrar yükle
+                if "jamanetwork" not in driver.page_source.lower():
+                    print("🔄 JavaScript ile tekrar yükleniyor...")
+                    chrome_options.remove_argument("--disable-javascript")
+                    driver.quit()
+                    
+                    service = ChromeService()
+                    driver = webdriver.Chrome(service=service, options=chrome_options)
+                    driver.set_page_load_timeout(60)
+                    driver.get(url)
+                    time.sleep(5)
+                
+                html_content = driver.page_source
+                
+        except Exception as e:
+            error_message = f"Selenium ile sayfa yüklenirken bir hata oluştu: {str(e)}"
+            print(error_message)
+            
+            # Son çare: requests ile tekrar dene
+            try:
+                print("🔄 Son çare: Requests ile tekrar deneniyor...")
+                response = requests.get(url, headers=headers, timeout=60)
+                response.raise_for_status()
+                html_content = response.text
+                if "jamanetwork" in html_content.lower() and len(html_content) > 1000:
+                    print("✅ Son çare requests başarılı")
+                else:
+                    return None, error_message
+            except Exception as final_error:
+                return None, f"Tüm scraping yöntemleri başarısız. Son hata: {final_error}"
+        finally:
+            if 'driver' in locals():
+                driver.quit()
 
     if not html_content:
         error_message = "HTML içerik alınamadı (sayfa boş geldi)."
         print(error_message)
         return None, error_message
 
+    print("✅ HTML içerik başarıyla alındı, parsing başlıyor...")
+    
     # ... (Geri kalan parsing kodu aynı, sadece en sonda return değerini güncelleyeceğiz)
     soup = BeautifulSoup(html_content, 'html.parser')
     article_data = {

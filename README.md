@@ -4,11 +4,27 @@ Bu MCP (Model Context Protocol) sunucusu, JAMA Network makalelerinden Veterans A
 
 ## Özellikler
 
-- **JAMA Network Makale Parsing**: Selenium ile dinamik içerik çekme
+- **JAMA Network Makale Parsing**: Çoklu scraping yöntemi ile güvenilir içerik çekme
 - **VA Template Kullanımı**: `templates/jama_va.pptx` şablonunu kullanarak tutarlı format
 - **Akıllı İçerik Yerleştirme**: Şekil isimlerine göre otomatik içerik dağıtımı
 - **GitHub Integration**: Otomatik release oluşturma ve dosya yükleme
 - **MCP Protocol**: Standart MCP araçları ile entegrasyon
+- **Container Ready**: Docker container ortamında tam uyumlu çalışma
+
+## Scraping Yöntemleri
+
+Sistem, JAMA Network makalelerini çekmek için çoklu yöntem kullanır:
+
+1. **Requests (Öncelikli)**: Hızlı ve güvenilir HTTP istekleri
+2. **Selenium (Yedek)**: JavaScript gerektiren sayfalar için
+3. **Fallback Requests**: Selenium başarısız olursa son çare
+
+### Container Ortamı Desteği
+
+- Google Chrome otomatik kurulum
+- ChromeDriver otomatik yönetimi
+- Headless mode desteği
+- Memory ve GPU optimizasyonları
 
 ## Kurulum
 

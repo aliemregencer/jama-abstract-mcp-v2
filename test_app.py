@@ -7,6 +7,39 @@ import os
 import sys
 from app import create_presentation
 
+def test_scraping_methods():
+    """Farklı scraping yöntemlerini test eder"""
+    print("🧪 Scraping Yöntemleri Test...")
+    
+    try:
+        from app import parse_jama_article
+        
+        # Test URL
+        test_url = "https://jamanetwork.com/journals/jamanetworkopen/fullarticle/2837260?resultClick=1"
+        print(f"📝 Test URL: {test_url}")
+        
+        print("🔄 Makale parsing test ediliyor...")
+        result, error = parse_jama_article(test_url)
+        
+        if error:
+            print(f"❌ Parsing hatası: {error}")
+            return False
+        elif result:
+            print("✅ Makale başarıyla parse edildi")
+            print(f"📋 Başlık: {result.get('title', 'Bulunamadı')}")
+            print(f"📋 Yazarlar: {len(result.get('authors', []))}")
+            print(f"📋 Abstract bölümleri: {list(result.get('abstract', {}).keys())}")
+            return True
+        else:
+            print("❌ Parsing sonucu boş")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Test sırasında hata oluştu: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
 def test_va_template():
     """VA template kullanımını test eder"""
     print("🧪 VA Template Test Başlatılıyor...")
@@ -87,6 +120,9 @@ def main():
     print("🚀 JAMA VA Abstract Generator Test Suite")
     print("=" * 50)
     
+    # Scraping testi
+    scraping_success = test_scraping_methods()
+    
     # VA Template testi
     template_success = test_va_template()
     
@@ -96,10 +132,11 @@ def main():
     # Sonuç özeti
     print("\n" + "=" * 50)
     print("📋 Test Sonuçları:")
+    print(f"   Scraping Methods: {'✅ PASS' if scraping_success else '❌ FAIL'}")
     print(f"   VA Template: {'✅ PASS' if template_success else '❌ FAIL'}")
     print(f"   GitHub Integration: {'✅ PASS' if github_success else '⚠️ SKIP'}")
     
-    if template_success:
+    if scraping_success and template_success:
         print("\n🎉 Tüm testler başarılı!")
         return 0
     else:
