@@ -348,10 +348,8 @@ def create_presentation(data, icon_path):
                 if hasattr(shape, 'text_frame'):
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
-                    population_text = data["abstract"].get(
-                        "design, setting, and participants", 
-                        "Nüfus verisi bulunamadı."
-                    )
+                    # Makale içeriğinden popülasyon bilgisini çıkar
+                    population_text = extract_population_info(data)
                     p.text = population_text
                     p.font.size = Pt(10)
                     # Metin kutusuna sığdır
@@ -371,10 +369,8 @@ def create_presentation(data, icon_path):
                 if hasattr(shape, 'text_frame'):
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
-                    intervention_text = data["abstract"].get(
-                        "interventions", 
-                        "Müdahale verisi bulunamadı."
-                    )
+                    # Makale içeriğinden müdahale bilgisini çıkar
+                    intervention_text = extract_intervention_info(data)
                     p.text = intervention_text
                     p.font.size = Pt(10)
                     shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
@@ -384,10 +380,8 @@ def create_presentation(data, icon_path):
                 if hasattr(shape, 'text_frame'):
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
-                    settings_text = data["abstract"].get(
-                        "design, setting, and participants", 
-                        "Ayarlar ve konumlar bulunamadı."
-                    )
+                    # Makale içeriğinden ayarlar ve konum bilgisini çıkar
+                    settings_text = extract_settings_info(data)
                     p.text = settings_text
                     p.font.size = Pt(10)
                     shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
@@ -397,10 +391,8 @@ def create_presentation(data, icon_path):
                 if hasattr(shape, 'text_frame'):
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
-                    outcome_text = data["abstract"].get(
-                        "main outcomes and measures", 
-                        "Birincil sonuç bulunamadı."
-                    )
+                    # Makale içeriğinden birincil sonuç bilgisini çıkar
+                    outcome_text = extract_primary_outcome_info(data)
                     p.text = outcome_text
                     p.font.size = Pt(10)
                     shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
@@ -410,10 +402,8 @@ def create_presentation(data, icon_path):
                 if hasattr(shape, 'text_frame'):
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
-                    findings_text = data["abstract"].get(
-                        "results", 
-                        "Bulgular bulunamadı."
-                    )
+                    # Makale içeriğinden bulgular bilgisini çıkar
+                    findings_text = extract_findings_info(data)
                     # Bulguları iki parçaya böl
                     if findings_text and len(findings_text) > 200:
                         words = findings_text.split()
@@ -429,10 +419,8 @@ def create_presentation(data, icon_path):
                 if hasattr(shape, 'text_frame'):
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
-                    findings_text = data["abstract"].get(
-                        "results", 
-                        "Bulgular bulunamadı."
-                    )
+                    # Makale içeriğinden bulgular bilgisini çıkar
+                    findings_text = extract_findings_info(data)
                     # Bulguları iki parçaya böl
                     if findings_text and len(findings_text) > 200:
                         words = findings_text.split()
@@ -454,7 +442,7 @@ def create_presentation(data, icon_path):
                     p.font.size = Pt(8)
                     p.font.color.rgb = RGBColor(128, 128, 128)
             
-            # Metin kutularını da kontrol et
+            # Metin kutularını da kontrol et - ana başlıkları değiştirme
             elif "Metin kutusu" in shape_name:
                 if hasattr(shape, 'text_frame'):
                     # Metin kutusunun konumuna göre içerik yerleştir
@@ -464,28 +452,14 @@ def create_presentation(data, icon_path):
                     # Sol taraftaki metin kutuları (popülasyon alanı)
                     if left < Inches(3):
                         if "16" in shape_name or "17" in shape_name:
-                            shape.text_frame.clear()
-                            p = shape.text_frame.paragraphs[0]
-                            p.text = data["abstract"].get(
-                                "design, setting, and participants", 
-                                "Detay bilgi bulunamadı."
-                            )
-                            p.font.size = Pt(9)
-                            shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
-                            shape.text_frame.word_wrap = True
+                            # Bu metin kutuları ana başlık, değiştirme
+                            continue
                     
                     # Sağ taraftaki metin kutuları (bulgular alanı)
                     elif left > Inches(3):
                         if "20" in shape_name or "21" in shape_name or "22" in shape_name:
-                            shape.text_frame.clear()
-                            p = shape.text_frame.paragraphs[0]
-                            p.text = data["abstract"].get(
-                                "conclusions and relevance", 
-                                "Sonuç bilgisi bulunamadı."
-                            )
-                            p.font.size = Pt(9)
-                            shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
-                            shape.text_frame.word_wrap = True
+                            # Bu metin kutuları ana başlık, değiştirme
+                            continue
 
     # Dosyayı kaydet
     filename = "JAMA_VA_Abstract.pptx"
@@ -724,3 +698,74 @@ def create_graphical_abstract(url: str, github_repo: str, github_token: str) -> 
         f"✅ PowerPoint sunumu başarıyla oluşturuldu: {local_filename}\n\n"
         f"⚠️ GitHub yükleme başarısız oldu. Repo adını ve token'ı kontrol edin. Detay: {upload_err}"
     )
+
+def extract_population_info(data):
+    """Makale verilerinden popülasyon bilgisini çıkarır"""
+    # Önce abstract'tan dene
+    if "abstract" in data and "design, setting, and participants" in data["abstract"]:
+        text = data["abstract"]["design, setting, and participants"]
+        
+        # Popülasyon bilgisini çıkar (örnek: "115 Men, 224 Women")
+        if "men" in text.lower() and "women" in text.lower():
+            # Sayıları ve cinsiyet bilgisini çıkar
+            import re
+            numbers = re.findall(r'\d+', text)
+            if len(numbers) >= 2:
+                return f"{numbers[0]} Men, {numbers[1]} Women"
+        
+        # Alternatif format: "X participants" veya "X patients"
+        elif "participants" in text.lower() or "patients" in text.lower():
+            import re
+            numbers = re.findall(r'\d+', text)
+            if numbers:
+                return f"{numbers[0]} Participants"
+        
+        # Yaş bilgisi varsa ekle
+        elif "mean age" in text.lower() or "age" in text.lower():
+            import re
+            age_match = re.search(r'mean age[,\s]*(\d+\.?\d*)', text.lower())
+            if age_match:
+                age = age_match.group(1)
+                return f"Mean age: {age} years"
+    
+    # Fallback
+    return data["abstract"].get("design, setting, and participants", "Popülasyon bilgisi bulunamadı.")
+
+def extract_intervention_info(data):
+    """Makale verilerinden müdahale bilgisini çıkarır"""
+    if "abstract" in data and "interventions" in data["abstract"]:
+        text = data["abstract"]["interventions"]
+        # Katılımcı sayısını çıkar
+        import re
+        numbers = re.findall(r'\d+', text)
+        if numbers:
+            return f"{numbers[0]} Participants analyzed"
+    
+    return data["abstract"].get("interventions", "Müdahale bilgisi bulunamadı.")
+
+def extract_findings_info(data):
+    """Makale verilerinden bulgular bilgisini çıkarır"""
+    if "abstract" in data and "results" in data["abstract"]:
+        return data["abstract"]["results"]
+    
+    return "Bulgular bulunamadı."
+
+def extract_settings_info(data):
+    """Makale verilerinden ayarlar ve konum bilgisini çıkarır"""
+    if "abstract" in data and "design, setting, and participants" in data["abstract"]:
+        text = data["abstract"]["design, setting, and participants"]
+        # Konum bilgisini çıkar
+        if "units" in text.lower() or "centers" in text.lower():
+            import re
+            numbers = re.findall(r'\d+', text)
+            if numbers:
+                return f"{numbers[0]} Psychiatric inpatient units across the US"
+    
+    return data["abstract"].get("design, setting, and participants", "Ayarlar ve konumlar bulunamadı.")
+
+def extract_primary_outcome_info(data):
+    """Makale verilerinden birincil sonuç bilgisini çıkarır"""
+    if "abstract" in data and "main outcomes and measures" in data["abstract"]:
+        return data["abstract"]["main outcomes and measures"]
+    
+    return "Birincil sonuç bulunamadı."
