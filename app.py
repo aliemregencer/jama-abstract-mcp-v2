@@ -1,5 +1,3 @@
-# app.py dosyasının tamamını bu güncel versiyonla değiştir
-
 import json
 import re
 import os
@@ -339,7 +337,7 @@ def create_presentation(data, icon_path):
                 if hasattr(shape, 'text_frame'):
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
-                    p.text = "POPULATION"
+                    p.text = extract_population_subtitle(data)
                     p.font.bold = True
                     p.font.size = Pt(11)
                     p.font.color.rgb = RGBColor(0xED, 0x09, 0x73)
@@ -349,7 +347,9 @@ def create_presentation(data, icon_path):
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
                     # Makale içeriğinden popülasyon bilgisini çıkar
-                    population_text = extract_population_info(data)
+                    population_text = extract_population_description(data)
+                    # 15 kelime sınırı uygula
+                    population_text = limit_words(population_text, 15)
                     p.text = population_text
                     p.font.size = Pt(10)
                     # Metin kutusuna sığdır
@@ -360,7 +360,7 @@ def create_presentation(data, icon_path):
                 if hasattr(shape, 'text_frame'):
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
-                    p.text = "INTERVENTION"
+                    p.text = extract_intervention_subtitle(data)
                     p.font.bold = True
                     p.font.size = Pt(11)
                     p.font.color.rgb = RGBColor(0xED, 0x09, 0x73)
@@ -370,7 +370,9 @@ def create_presentation(data, icon_path):
                     shape.text_frame.clear()
                     p = shape.text_frame.paragraphs[0]
                     # Makale içeriğinden müdahale bilgisini çıkar
-                    intervention_text = extract_intervention_info(data)
+                    intervention_text = extract_intervention_description(data)
+                    # 15 kelime sınırı uygula
+                    intervention_text = limit_words(intervention_text, 15)
                     p.text = intervention_text
                     p.font.size = Pt(10)
                     shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
@@ -382,6 +384,8 @@ def create_presentation(data, icon_path):
                     p = shape.text_frame.paragraphs[0]
                     # Makale içeriğinden ayarlar ve konum bilgisini çıkar
                     settings_text = extract_settings_info(data)
+                    # 10 kelime sınırı uygula
+                    settings_text = limit_words(settings_text, 10)
                     p.text = settings_text
                     p.font.size = Pt(10)
                     shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
@@ -393,6 +397,8 @@ def create_presentation(data, icon_path):
                     p = shape.text_frame.paragraphs[0]
                     # Makale içeriğinden birincil sonuç bilgisini çıkar
                     outcome_text = extract_primary_outcome_info(data)
+                    # 20 kelime sınırı uygula
+                    outcome_text = limit_words(outcome_text, 20)
                     p.text = outcome_text
                     p.font.size = Pt(10)
                     shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
@@ -404,8 +410,10 @@ def create_presentation(data, icon_path):
                     p = shape.text_frame.paragraphs[0]
                     # Makale içeriğinden bulgular bilgisini çıkar
                     findings_text = extract_findings_info(data)
+                    # 15 kelime sınırı uygula
+                    findings_text = limit_words(findings_text, 15)
                     # Bulguları iki parçaya böl
-                    if findings_text and len(findings_text) > 200:
+                    if findings_text and len(findings_text.split()) > 15:
                         words = findings_text.split()
                         mid_point = len(words) // 2
                         p.text = " ".join(words[:mid_point])
@@ -421,8 +429,10 @@ def create_presentation(data, icon_path):
                     p = shape.text_frame.paragraphs[0]
                     # Makale içeriğinden bulgular bilgisini çıkar
                     findings_text = extract_findings_info(data)
+                    # 15 kelime sınırı uygula
+                    findings_text = limit_words(findings_text, 15)
                     # Bulguları iki parçaya böl
-                    if findings_text and len(findings_text) > 200:
+                    if findings_text and len(findings_text.split()) > 15:
                         words = findings_text.split()
                         mid_point = len(words) // 2
                         p.text = " ".join(words[mid_point:])
@@ -769,3 +779,110 @@ def extract_primary_outcome_info(data):
         return data["abstract"]["main outcomes and measures"]
     
     return "Birincil sonuç bulunamadı."
+
+def limit_words(text, limit):
+    """Verilen metni belirtilen kelime sayısına kadar kısaltır ve '...' ekler."""
+    if not text:
+        return text
+    words = text.split()
+    if len(words) <= limit:
+        return text
+    return " ".join(words[:limit]) + "..."
+
+def extract_population_subtitle(data):
+    """Makale verilerinden popülasyon başlığını çıkarır"""
+    if "abstract" in data and "design, setting, and participants" in data["abstract"]:
+        text = data["abstract"]["design, setting, and participants"]
+        
+        # "115 Men, 224 Women" formatını ara
+        import re
+        men_match = re.search(r'(\d+)\s*men', text.lower())
+        women_match = re.search(r'(\d+)\s*women', text.lower())
+        
+        if men_match and women_match:
+            men_count = men_match.group(1)
+            women_count = women_match.group(1)
+            return f"{men_count} Men, {women_count} Women"
+        
+        # Alternatif: toplam katılımcı sayısı
+        total_match = re.search(r'(\d+)\s*participants?', text.lower())
+        if total_match:
+            total_count = total_match.group(1)
+            return f"{total_count} Participants"
+    
+    return "Population"
+
+def extract_population_description(data):
+    """Makale verilerinden popülasyon açıklamasını çıkarır"""
+    if "abstract" in data and "design, setting, and participants" in data["abstract"]:
+        text = data["abstract"]["design, setting, and participants"]
+        
+        # "Adult psychiatric inpatients hospitalized for a suicide attempt or suicidal ideation with intent. Mean age, 27.9 y." formatını ara
+        description_parts = []
+        
+        # Hasta tipi
+        if "psychiatric inpatients" in text.lower():
+            description_parts.append("Adult psychiatric inpatients")
+        
+        # Hastaneye yatış nedeni
+        if "suicide attempt" in text.lower() or "suicidal ideation" in text.lower():
+            description_parts.append("hospitalized for a suicide attempt or suicidal ideation with intent")
+        
+        # Ortalama yaş
+        age_match = re.search(r'mean age[,\s]*(\d+\.?\d*)', text.lower())
+        if age_match:
+            age = age_match.group(1)
+            description_parts.append(f"Mean age, {age} y")
+        
+        if description_parts:
+            return ". ".join(description_parts)
+    
+    return "Population information not found."
+
+def extract_intervention_subtitle(data):
+    """Makale verilerinden müdahale başlığını çıkarır"""
+    if "abstract" in data and "interventions" in data["abstract"]:
+        text = data["abstract"]["interventions"]
+        
+        # "266 Participants analyzed" formatını ara
+        import re
+        total_match = re.search(r'(\d+)\s*participants?\s*analyzed', text.lower())
+        if total_match:
+            total_count = total_match.group(1)
+            return f"{total_count} Participants analyzed"
+        
+        # Alternatif: sadece katılımcı sayısı
+        total_match = re.search(r'(\d+)\s*participants?', text.lower())
+        if total_match:
+            total_count = total_match.group(1)
+            return f"{total_count} Participants"
+    
+    return "Intervention"
+
+def extract_intervention_description(data):
+    """Makale verilerinden müdahale açıklamasını çıkarır"""
+    if "abstract" in data and "interventions" in data["abstract"]:
+        text = data["abstract"]["interventions"]
+        
+        # "127 Digital therapeutic" ve "139 Control application" formatını ara
+        description_parts = []
+        
+        # Digital therapeutic sayısı
+        digital_match = re.search(r'(\d+)\s*digital\s*therapeutic', text.lower())
+        if digital_match:
+            digital_count = digital_match.group(1)
+            description_parts.append(f"{digital_count} Digital therapeutic")
+        
+        # Control application sayısı
+        control_match = re.search(r'(\d+)\s*control\s*application', text.lower())
+        if control_match:
+            control_count = control_match.group(1)
+            description_parts.append(f"{control_count} Control application")
+        
+        if description_parts:
+            return " and ".join(description_parts)
+        
+        # Alternatif: genel müdahale açıklaması
+        return text
+    
+    return "Intervention information not found."
