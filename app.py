@@ -38,6 +38,10 @@ def parse_jama_article(url):
     # GÜNCELLEME: Container ortamında çalışacak şekilde Selenium konfigürasyonu
     html_content = None
     
+    # Memory temizliği ve optimizasyon
+    import gc
+    gc.collect()
+    
     # Önce requests ile deneyelim (daha hızlı ve güvenilir)
     print("📡 Requests ile sayfa yükleniyor...")
     try:
@@ -50,7 +54,8 @@ def parse_jama_article(url):
             'Upgrade-Insecure-Requests': '1',
         }
         
-        response = requests.get(url, headers=headers, timeout=30)
+        # Timeout'u 20 saniyeye düşür (30'dan)
+        response = requests.get(url, headers=headers, timeout=20)
         response.raise_for_status()
         html_content = response.text
         
@@ -84,6 +89,33 @@ def parse_jama_article(url):
             chrome_options.add_argument("--silent")
             chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
             
+            # YENİ: Hızlandırma için ek optimizasyonlar
+            chrome_options.add_argument("--disable-background-timer-throttling")
+            chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+            chrome_options.add_argument("--disable-renderer-backgrounding")
+            chrome_options.add_argument("--disable-features=TranslateUI")
+            chrome_options.add_argument("--disable-ipc-flooding-protection")
+            chrome_options.add_argument("--disable-web-security")
+            chrome_options.add_argument("--disable-features=VizDisplayCompositor")
+            chrome_options.add_argument("--memory-pressure-off")
+            chrome_options.add_argument("--max_old_space_size=4096")
+            chrome_options.add_argument("--disable-default-apps")
+            chrome_options.add_argument("--disable-sync")
+            chrome_options.add_argument("--disable-translate")
+            chrome_options.add_argument("--disable-logging")
+            chrome_options.add_argument("--disable-in-process-stack-traces")
+            chrome_options.add_argument("--disable-histogram-customizer")
+            chrome_options.add_argument("--disable-glsl-translator")
+            chrome_options.add_argument("--disable-composited-antialiasing")
+            chrome_options.add_argument("--disable-canvas-aa")
+            chrome_options.add_argument("--disable-3d-apis")
+            chrome_options.add_argument("--disable-accelerated-2d-canvas")
+            chrome_options.add_argument("--disable-accelerated-jpeg-decoding")
+            chrome_options.add_argument("--disable-accelerated-mjpeg-decode")
+            chrome_options.add_argument("--disable-accelerated-video-decode")
+            chrome_options.add_argument("--disable-gpu-sandbox")
+            chrome_options.add_argument("--disable-software-rasterizer")
+            
             # Container ortamında Chrome driver kurulumu
             try:
                 # Önce sistem Chrome'u kullanmayı dene
@@ -112,7 +144,7 @@ def parse_jama_article(url):
                     # Son çare: requests ile tekrar dene
                     print("🔄 Son çare: Requests ile tekrar deneniyor...")
                     try:
-                        response = requests.get(url, headers=headers, timeout=60)
+                        response = requests.get(url, headers=headers, timeout=40)  # 60'tan 40'a düşür
                         response.raise_for_status()
                         html_content = response.text
                         if "jamanetwork" in html_content.lower() and len(html_content) > 1000:
@@ -124,13 +156,16 @@ def parse_jama_article(url):
                         print(error_message)
                         return None, error_message
             
-            # Selenium ile sayfa yükle
+            # Selenium ile sayfa yükle - OPTİMİZE EDİLDİ
             if 'driver' in locals():
-                driver.set_page_load_timeout(60)
+                # Timeout'ları optimize et
+                driver.set_page_load_timeout(40)  # 60'tan 40'a düşür
+                driver.implicitly_wait(3)        # Implicit wait ekle
+                
                 driver.get(url)
                 
-                # Sayfa yüklenene kadar bekle
-                time.sleep(5)
+                # Sayfa yüklenene kadar bekle - daha kısa
+                time.sleep(3)  # 5'ten 3'e düşür
                 
                 # JavaScript'i etkinleştir ve tekrar yükle
                 if "jamanetwork" not in driver.page_source.lower():
@@ -140,9 +175,10 @@ def parse_jama_article(url):
                     
                     service = ChromeService()
                     driver = webdriver.Chrome(service=service, options=chrome_options)
-                    driver.set_page_load_timeout(60)
+                    driver.set_page_load_timeout(40)  # Daha kısa timeout
+                    driver.implicitly_wait(3)
                     driver.get(url)
-                    time.sleep(5)
+                    time.sleep(3)  # Daha kısa bekleme
                 
                 html_content = driver.page_source
                 
@@ -153,7 +189,7 @@ def parse_jama_article(url):
             # Son çare: requests ile tekrar dene
             try:
                 print("🔄 Son çare: Requests ile tekrar deneniyor...")
-                response = requests.get(url, headers=headers, timeout=60)
+                response = requests.get(url, headers=headers, timeout=40)  # 60'tan 40'a düşür
                 response.raise_for_status()
                 html_content = response.text
                 if "jamanetwork" in html_content.lower() and len(html_content) > 1000:
